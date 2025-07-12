@@ -1,0 +1,58 @@
+# .github/workflows/ci-pipeline.yml
+
+name: Build and Push Frontend Image to ECR
+
+# This section defines when the workflow will run.
+on:
+  # Run on pushes to the 'main' branch
+  push:
+    branches: [ "main" ]
+  # Only run if files inside the 'src/frontend/' directory have changed.
+  # This prevents the pipeline from running unnecessarily for other service changes.
+  paths:
+    - 'src/frontend/**'
+
+# Environment variables available to all jobs in this workflow
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: microservices-demo/frontend
+
+jobs:
+  build-and-push-image:
+    name: Build and Push
+    runs-on: ubuntu-latest # Use a standard Linux runner
+
+    # These permissions are required for the OIDC keyless authentication to work.
+    permissions:
+      id-token: write # This allows the job to get an OIDC token
+      contents: read  # This allows the job to checkout the repository code
+
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # The ARN of the role we created in AWS and stored in GitHub secrets
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr # Give this step an ID so we can reference its outputs
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          # Get the ECR registry URL from the output of the 'login-ecr' step
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          # Use the unique Git commit SHA as the image tag for versioning
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          # Build the docker image
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./src/frontend
+          # Push the image to ECR
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          # Save the full image URI as an output of this step for potential future use
+          echo "image_uri=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
