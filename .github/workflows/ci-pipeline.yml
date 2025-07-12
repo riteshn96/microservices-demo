@@ -7,10 +7,10 @@ on:
   # Run on pushes to the 'main' branch
   push:
     branches: [ "main" ]
-  # Only run if files inside the 'src/frontend/' directory have changed.
-  # This prevents the pipeline from running unnecessarily for other service changes.
-  paths:
-    - 'src/frontend/**'
+    # Only run if files inside the 'src/frontend/' directory have changed.
+    # This is now correctly indented under 'push'.
+    paths:
+      - 'src/frontend/**'
 
 # Environment variables available to all jobs in this workflow
 env:
